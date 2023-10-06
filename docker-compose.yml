@@ -1,0 +1,148 @@
+networks:
+  elastic:
+    driver: bridge
+
+volumes:
+  elasticsearch:
+    driver: local
+  driveconnector:
+    driver: local
+  samba:
+    driver: local
+
+services:
+  streamlit:
+    container_name: streamlit
+    build: ./streamlit/
+    working_dir: /app
+    cap_add:
+      - SYS_ADMIN
+      - DAC_READ_SEARCH
+    ports:
+    - "8501:8501"
+    networks:
+      - elastic
+    # command: "service elasticsearch start && streamlit run app.py"
+    # This container is no longer used. Kept here to test connection to other container using ping & smbclient. 
+  
+  drive-connector:
+    container_name: drive-connector
+    build: ./drive-connector/
+    working_dir: /app
+    depends_on:
+      - "elasticsearch"
+      - "ent-search"
+      - "samba"
+    volumes:
+      - driveconnector:/app
+      - ./drive-connector/network_drive_connector.yml:/app/network_drive_connector.yml
+    networks:
+      - elastic
+  
+  elasticsearch:
+    container_name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.13
+    restart: unless-stopped
+    environment:
+      - "discovery.type=single-node"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "xpack.security.enabled=true"
+      - "xpack.security.authc.api_key.enabled=true"
+      - "ELASTIC_PASSWORD=changeme"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch:/usr/share/elasticsearch/data
+    ports:
+      - 127.0.0.1:9200:9200
+    networks:
+      - elastic
+
+  ent-search:
+    container_name: ent-search
+    image: docker.elastic.co/enterprise-search/enterprise-search:7.17.13
+    restart: unless-stopped
+    depends_on:
+      - "elasticsearch"
+    environment:
+      - "JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ENT_SEARCH_DEFAULT_PASSWORD=changeme"
+      - "elasticsearch.username=elastic"
+      - "elasticsearch.password=changeme"
+      - "elasticsearch.host=http://elasticsearch:9200"
+      - "allow_es_settings_modification=true"
+      - "secret_management.encryption_keys=[4a2cd3f81d39bf28738c10db0ca782095ffac07279561809eecc722e0c20eb09]"
+      - "elasticsearch.startup_retry.interval=15"
+    ports:
+      - 127.0.0.1:3002:3002
+    networks:
+      - elastic
+
+  kibana:
+    container_name: kibana
+    image: docker.elastic.co/kibana/kibana:7.17.13
+    restart: unless-stopped
+    depends_on:
+      - "elasticsearch"
+      - "ent-search"
+    ports:
+      - 127.0.0.1:5601:5601
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ENTERPRISESEARCH_HOST: http://ent-search:3002
+      ELASTICSEARCH_USERNAME: elastic
+      ELASTICSEARCH_PASSWORD: changeme
+    networks:
+      - elastic
+
+  samba:
+    image: crazymax/samba
+    container_name: samba
+    volumes:
+      - samba:/data
+      - ./samba/config.yml:/data/config.yml
+      - ./samba/mnt:/downloads
+    environment:
+      - "TZ=Europe/London"
+      - "SAMBA_LOG_LEVEL=0"
+    restart: always
+    networks:
+      - elastic
+    # https://fariszr.com/en/docker-smb-network-discovery/
+
+
+
+# Below is an alternative samba container which you can try and utilise to help troubleshoot if needed.
+
+  # samba:
+  #   image: mekayelanik/samba-server-alpine:latest
+  #   container_name: samba-server-alpine
+  #   environment:
+  #     - TZ=Europe/London
+  #     - WORKGROUP=SAMBA-Server
+  #     - MAP_TO_GUEST=Bad User
+  #     - SMB_PORT=445
+  #     - NUMBER_OF_USERS=1
+  #     - USER_NAME_1=q
+  #     - USER_PASS_1=q
+  #     - USER_1_UID=1001
+  #     - USER_1_GID=1001
+  #     - NUMBER_OF_SHARES=1
+  #     - SHARE_NAME_1=SHARE_1
+  #     - SHARE_1_GUEST_ONLY=no
+  #     - SHARE_1_WRITE_LIST=q
+  #     - SHARE_1_READ_ONLY=no
+  #     - SHARE_1_READ_LIST=q
+  #     - SHARE_1_BROWSEABLE=yes
+  #     - SHARE_1_VALID_USERS=q
+  #     - SERVER_MIN_PROTOCOL=SMB2_02
+  #   ports:
+  #     - "137:137/udp"
+  #     - "138:138/udp"
+  #     - "139:139/tcp"
+  #     - "445:445/tcp"
+  #   volumes:
+  #     - ./samba/mnt:/data/SHARE_1
+  #   restart: unless-stopped

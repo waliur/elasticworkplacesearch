@@ -1,0 +1,48 @@
+#Configurations for the Network Drive Connector
+
+# ------------------------------- Network Drive configuration settings -------------------------------
+#The domain name of the Network Drive server for NTLM authentication
+network_drive.domain: "WORKGROUP"
+#The username used to login to Network Drive server
+network_drive.username: "root"
+#The password used to login to Network Drive server
+network_drive.password: "bar"
+#The relative path of the Network Drive.
+network_drive.path: "share1/spon-doc"
+# The name of the server hosting the Network Drive
+network_drive.server_name: "samba"
+# The IP address of the server hosting the Network Drive
+network_drive.server_ip: "samba"
+#The name of the machine where the connector will run
+client_machine.name: "network-drive-connector"
+# ------------------------------- Workplace Search configuration settings -------------------------------
+#Access token for Workplace search authentication
+enterprise_search.api_key: "42b05961ee5cde5aaa1c2708e4d8f604fce1babd7cf5a33febb9124bc35c4a36"
+#Source identifier for the custom source created on the workplace search server
+enterprise_search.source_id: "652086e51518a68b59f0c01c"
+#Workplace search server address Example: http://es-host:3002 
+enterprise_search.host_url: "http://ent-search:3002/"
+# ------------------------------- Connector specific configuration settings -------------------------------
+#Specifies the objects to be fetched and indexed in the WorkPlace search along with fields that needs to be included/excluded. The list of the objects with a pattern to be included/excluded is provided. By default all the objects are fetched
+include:
+   size: [">2147483648"]
+   path_template: ["**/*.txt", "**/*.contact", "**/*.docx", "**/*.doc", "**/*.xlsx", "**/*.json", "**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.py", "**/*.yml", "**/*.md", "**/*.ini", "**/*.sh", "**/*.rst", "**/*.pdf", "**/*.rtf", "**/*.ppt", "**/*.file"]
+exclude:
+  size: [">2147483648"]
+  path_template:
+#The timestamp after which all the objects that are modified or created are fetched from the Network Drive. By default, all the objects present in the Network Drive till the end_time are fetched
+start_time : 
+#The timestamp before which all the updated objects need to be fetched i.e. the connector won't fetch any object updated/created after the end_time. By default, all the objects updated/added till the current time are fetched
+end_time : 
+#The level of the logs the user wants to use in the log files. The possible values include: DEBUG, INFO, WARN, ERROR. By default, the level is INFO
+log_level: INFO
+#The number of retries to perform in case of server error. The connector will use exponential back-off for retry mechanism
+retry_count: 3
+#Number of threads to be used in multithreading for the Network Drive sync.
+network_drives_sync_thread_count: 5
+#Number of threads to be used in multithreading for the enterprise search sync.
+enterprise_search_sync_thread_count: 5
+#Denotes whether document permission will be enabled or not
+enable_document_permission: No
+#The path of csv file containing mapping of Network Drive user ID to Workplace user ID
+network_drive_enterprise_search.user_mapping: ""
